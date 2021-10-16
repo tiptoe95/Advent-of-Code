@@ -1,3 +1,6 @@
+#!/bin/python3
+
+
 from pathlib import Path
 
 
@@ -13,7 +16,6 @@ def calibrate(changes):
     while not duplicate_flag:
         for change in changes:
             freq += int(change)
-            print(freq)
             if freq in freqs:
                 duplicate_flag = True
                 print(f"first repeated value: {freq}")
