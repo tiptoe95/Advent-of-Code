@@ -32,5 +32,24 @@ def critical_square(ring):
     return (2*ring + 1)**2
 
 
+def cheat():
+    inp = 368078
+
+    def next_coords(x, y):
+        if x == y == 0: return (1, 0)
+        if y > -x and x > y: return (x, y+1)
+        if y > -x and y >= x: return (x-1, y)
+        if y <= -x and x < y: return (x, y-1)
+        if y <= -x and x >= y: return (x+1, y)
+
+    x, y = 0, 0
+    vals = { (0, 0): 1 }
+    while vals[(x, y)] <= inp:
+        x, y = next_coords(x, y)
+        vals[(x, y)] = sum(vals.get((x+i, y+j), 0) for i in [-1, 0, 1] for j in [0, 1, -1])
+    print(vals[(x, y)])
+
+
 if __name__ == "__main__":
     main()
+    cheat()
