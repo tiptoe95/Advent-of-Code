@@ -4,6 +4,22 @@
 #
 
 
+# ripped from reddit
+def run(lengths, times):
+    position = 0
+    skip = 0
+    sequence = list(range(256))
+    for _ in range(times):
+        for l in lengths:
+            for i in range(l // 2):
+                now = (position + i) % len(sequence)
+                later = (position + l - 1 - i) % len(sequence)
+                sequence[now], sequence[later] = sequence[later], sequence[now]
+            position += l + skip
+            skip += 1
+    return sequence
+
+
 def get_input(filepath):
     with open(filepath, 'r') as input_file:
         data = input_file.readline().split(',')
