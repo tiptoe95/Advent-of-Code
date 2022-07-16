@@ -42,6 +42,7 @@ def part2():
 class Node():
     census = {}
     root = None
+    unbalanced_node = None
 
     def __init__(self, name, weight, children):
         self.name = name
@@ -50,31 +51,34 @@ class Node():
         self.totalweight = None
         self.children = children
         self.parent = None
-        self.balanced = None
+        self.balanced = False
+
+    def __repr__(self):
+        return f"{self.name} ({self.weight})"
 
     def balance(self):
-        #check amount of children
-        if len(self.children) == 2:
-            print("2 chit'lin, bruh")
-        elif len(self.children) == 0:
+        if len(self.children) == 0:
             self.balanced = True
             self.totalweight = self.weight
             return
-
         #recursion
         for child in self.children:
             if not Node.census[child].balanced:
                 Node.census[child].balance()
         #determine if disc is balanced
-        mode = statistics.mode([Node.census[child].totalweight for child in self.children])
-        for child in self.children:
-            if Node.census[child].totalweight == mode:
-                Node.census[child].balanced = True
-            else:
-                Node.census[child].balanced = False
-                print(f"weight for '{Node.census[child].name}' should be {mode}")
-        # sum up weights
-        self.totalweight = sum(Node.census[child].totalweight for child in self.children)
+        weight_set = set()
+        for c in self.children:
+            child = Node.census[c]
+            weight_set.add(child.totalweight)
+        if len(weight_set) == 1:
+            self.balanced = True
+            self.totalweight = self.weight + sum(Node.census[x].totalweight for x in self.children)
+            return
+        else:
+            for c in self.children:
+                child = Node.census[c]
+                print(child, child.totalweight)
+
         
     @classmethod
     def populate_parents(cls):
