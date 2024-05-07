@@ -1,148 +1,160 @@
-#!/bin/python3
+#!/usr/bin/python3
 
 
 #
 
 
-class Duet():
+class Duet:
 
-    def __init__(self, commands):
-        self.commands = commands
-        self.register = [(x, 0) for x in "abcdefghijklmnop"]
-        self.pos = 0
+    def __init__(self, code):
+        self.registers = dict((x, 0) for x in "abcdefghijklmnopqrstuvwxyz")
+        self.code = code
+        self.cmd_dict = {
+            "snd": self.cmd_snd,
+            "set": self.cmd_set,
+            "add": self.cmd_add,
+            "mul": self.cmd_mul,
+            "mod": self.cmd_mod,
+            "rcv": self.cmd_rcv,
+            "jgz": self.cmd_jgz,
+        }
         self.last_sound = None
-    
+        self.index = 0
+        self.step = 0
+        self.STOP_ITER = False
+
     def __repr__(self):
-        return ' - '.join(f"{let}{num}" for let, num in self.register)
+        keys = [x for x in self.registers.keys() if not None]
+        keys.sort()
+        s = ""
+        for x in keys:
+            s += (f"\t{x} - {self.registers[x]}\n")
+        return s
 
-    def parse_command(self, command, *args):
-        command_dict = {"snd": self.sound, \
-                        "set": self.set, \
-                        "add": self.add, \
-                        "mul": self.mul, \
-                        "mod": self.mod, \
-                        "rcv": self.recover, \
-                        "jgz": self.jump}
-        ans = command_dict[command](*args)
-        self.pos += 1
-        return ans
+    def run(self):
+        while not self.STOP_ITER:
+            self.run_step()
 
-    def get_reg(self, reg):
-        try:
-            reg_idx = int(reg)
-        except ValueError:
-            filtered_list = [idx for idx, tup in enumerate(self.register) \
-                             if tup[0] == reg]
-            reg_idx = filtered_list[0]
-        return reg_idx
-
-    def get_val(self, reg):
-        reg_idx = self.get_reg(reg)
-        reg_val = self.register[reg_idx][1]
-        return reg_val
-
-    def sound(self, frequency):
-        self.last_sound = self.get_val(frequency)
-        return
-
-    def set(self, reg, new_val):
-        new_val = self.get_val(new_val)
-        reg_idx = self.get_reg(reg)
-        letter, value = self.register[reg_idx]
-        self.register[reg_idx] = (letter, new_val)
-        return
-
-    def add(self, reg, add_val):
-        add_val = int(add_val)
-        reg_idx = self.get_reg(reg)
-        letter, value = self.register[reg_idx]
-        self.register[reg_idx] = (letter, value + add_val)
-        return
-
-    def mul(self, reg, mul_val):
-        try:
-            mul_val = int(mul_val)
-        except ValueError:
-            mul_val = self.get_val(mul_val)
-        reg_idx = self.get_reg(reg)
-        letter, value = self.register[reg_idx]
-        self.register[reg_idx] = (letter, value * mul_val)
-        return
-    
-    def mod(self, reg, mod_val):
-        mod_val = self.get_val(mod_val)
-        reg_idx = self.get_reg(reg)
-        letter, value = self.register[reg_idx]
-        self.register[reg_idx] = (letter, value % mod_val)
-        return
-
-    def recover(self, x):
-        try:
-            x = int(x)
-        except ValueError:
-            x = self.get_val(x)
-        if x != 0:
-            return self.last_sound
+    def run_step(self):
+        cmd, reg, val = self.code[self.index]
+        print(f"{self.step} command <{cmd}, {reg}, {val}>")
+        if val is not None:
+            self.cmd_dict[cmd](reg, val)
         else:
-            return None
+            self.cmd_dict[cmd](reg)
+        print(self)
+        self.index += 1
+        self.step += 1
+#        if self.step > 100:
+#            self.STOP_ITER = True
 
-    def jump(self, x, offset):
+    def cmd_snd(self, x):
+        # Plays a sound with frequency equal to the value of x
+        freq = self.get_value(x)
+        print(f"doot ({freq} hz)")
+        self.last_sound = freq
+
+    def cmd_set(self, x, y):
+        # sets register x to the value of y
+        self.registers[x] = self.get_value(y)
+
+    def cmd_add(self, x, y):
+        # increases register x by the value of y
+        self.registers[x] += self.get_value(y)
+
+    def cmd_mul(self, x, y):
+        # sets register x to the result of multiplying the value contained in register x by the value of y
+        self.registers[x] *= self.get_value(y)
+
+    def cmd_mod(self, x, y):
+        # sets register x to the remainder of dividing the value contained in register x by the value of y
+        self.registers[x] = self.get_value(x) % self.get_value(y)
+
+    def cmd_rcv(self, x):
+        # recovers the frequency of the last sound played, but only if x is non-zero
+        if self.get_value(x) == 0:
+            print("recovery empty")
+            pass
+        else:
+            sound = self.last_sound
+            print(sound)
+            if sound != 0:
+                self.STOP_ITER = True
+
+
+    def cmd_jgz(self, x, y):
+        # jumps with an offset of the value of y, but only if x > 0.
+        # An offset of 2 skips the next instruction, while -1 jumps to the previous one
+        jump = self.get_value(y)
+        if self.get_value(x) < 1:
+            pass
+        else:
+            self.index += jump
+
+    def get_value(self, x):
+        # returns the value of x, whether it is an integer or a register
+
+        if type(x) is int:
+            return x
+        elif type(x) is str:
+            return self.registers[x]
+        else:
+            raise ValueError(f"invalid type {type(x)}")
+
+
+def get_input(filepath):
+    with open(filepath, 'r') as file:
+        code = [line.strip() for line in file.readlines()]
+    return code
+
+
+def parse_input(code):
+    parsed_code = []
+    for instruction in code:
+        x = instruction.split(" ")
+        if len(x) == 3:
+            try:
+                # if value is a number, convert it to type int
+                value = int(x[2])
+            except ValueError:
+                # if value can't be an int, leave it as type str to reference register
+                value = x[2]
+        else:
+            value = None
+
         try:
-            offset = int(offset)
+            reg = int(x[1])
         except ValueError:
-            offset = self.get_val(offset)
-        try:
-            x = int(x)
-        except ValueError:
-            x = self.get_val(x)
-        if x > 0:
-            self.pos += offset - 1
+            reg = x[1]
+        cmd = x[0]
+        parsed_code.append((cmd, reg, value))
+    return parsed_code
 
 
-def get_input(file_path):
-    with open(file_path, 'r') as file:
-        commands = [x.rstrip() for x in file.readlines()]
-    return commands
-
-def part1():
-    commands = get_input(r"inputs/input_day18.txt")
-    duet = Duet(commands)
-    RUN_FLAG = True
-    ans = None
-    while RUN_FLAG:
-        try:
-            command = commands[duet.pos]
-        except IndexError:
-            RUN_FLAG = False
-        ans = duet.parse_command(*tuple(command.split(' ')))
-        if ans is not None:
-            RUN_FLAG = False
-    print(f"Part 1: {ans}")
-
-
-def part2():
+def main():
+    code = get_input('inputs/input_day18.txt')
+    code = parse_input(code)
+    duet = Duet(code)
+    duet.run()
     pass
 
 
-def test1():
-    commands = ["set a 1", "add a 2", "mul a a", "mod a 5", "snd a", "set a 0", \
-                "rcv a", "jgz a -1", "set a 1", "jgz a -2"]
-    duet = Duet(commands)
-    RUN_FLAG = True
-    ans = 0
-    while RUN_FLAG:
-        print(duet)
-        print(duet.pos)
-        try:
-            command = commands[duet.pos]
-            print(f"command: {command}")
-        except IndexError:
-            raise IndexError
-        ans = duet.parse_command(*tuple(command.split(' ')))
-        if ans is not None:
-            RUN_FLAG = False
-    print(ans)
+def test():
+    code = [
+    "set a 1",
+    "add a 2",
+    "mul a a",
+    "mod a 5",
+    "snd a",
+    "set a 0",
+    "rcv a",
+    "jgz a -1",
+    "set a 1",
+    "jgz a -2"]
+    duet = Duet(parse_input(code))
+    duet.run()
 
-if __name__ == "__main__":
-    #test1()
-    part1()
+
+if __name__ == '__main__':
+    #test()
+    main()
